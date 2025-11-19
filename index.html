@@ -191,6 +191,17 @@
       font-weight: bold; 
       margin-top: 10px; 
     }
+    .reset-config {
+      background: #dc3545;
+      color: white;
+      padding: 10px 30px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 10px;
+      margin-left: 10px;
+    }
     .error { 
       background: #f8d7da; 
       color: #721c24; 
@@ -211,6 +222,13 @@
       display: block;
       margin-bottom: 5px;
     }
+    .help-text code {
+      background: #263238;
+      color: #aed581;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: monospace;
+    }
     @media (max-width: 768px) {
       h1 { font-size: 1.8em; }
       .controls { flex-direction: column; }
@@ -228,16 +246,25 @@
     </div>
     
     <div id="configPanel" class="config-panel">
-      <h3>⚙️ Configuration Initiale</h3>
+      <h3>⚙️ Configuration API Arduino Cloud</h3>
       <div class="help-text">
         <strong>📋 Où trouver ces informations ?</strong>
-        <p><strong>Thing ID :</strong> Arduino Cloud → Things → Votre Thing → Copiez l'ID dans l'URL</p>
-        <p><strong>API Client :</strong> Arduino Cloud → API Keys → Create API Key</p>
+        <p><strong>1. Thing ID :</strong></p>
+        <p>• Allez sur <code>https://cloud.arduino.cc/home/things</code></p>
+        <p>• Cliquez sur votre Thing</p>
+        <p>• L'URL devient : <code>https://cloud.arduino.cc/home/things/VOTRE-THING-ID</code></p>
+        <p>• Copiez la partie après <code>/things/</code></p>
+        
+        <p style="margin-top: 10px;"><strong>2. API Client ID & Secret :</strong></p>
+        <p>• Allez sur <code>https://cloud.arduino.cc/home/api-keys</code></p>
+        <p>• Cliquez sur "CREATE API KEY"</p>
+        <p>• Donnez un nom et copiez le Client ID et Secret</p>
       </div>
       <input type="text" id="thingId" class="config-input" placeholder="Thing ID (ex: 726fbe15-7f0e-4cf6-9cb2-22d969464321)">
-      <input type="text" id="clientId" class="config-input" placeholder="Client ID">
+      <input type="text" id="clientId" class="config-input" placeholder="Client ID (ex: 6a40c4ac-6850-4259-b86d-bf4369718559)">
       <input type="password" id="clientSecret" class="config-input" placeholder="Client Secret">
       <button class="save-config" onclick="saveConfig()">💾 Sauvegarder et Connecter</button>
+      <button class="reset-config" onclick="resetConfig()">🔄 Réinitialiser</button>
     </div>
     
     <div id="connectionStatus" class="connection-status disconnected">
@@ -304,7 +331,7 @@
     
     let updateInterval;
     
-    // Charger la config depuis localStorage
+    // Charger la config
     function loadConfig() {
       const saved = localStorage.getItem('sechoirCloudConfig');
       if (saved) {
@@ -328,7 +355,14 @@
       config.clientSecret = document.getElementById('clientSecret').value.trim();
       
       if (!config.thingId || !config.clientId || !config.clientSecret) {
-        showError('Veuillez remplir tous les champs');
+        showError('⚠️ Veuillez remplir tous les champs');
+        return;
+      }
+      
+      // Vérifier le format du Thing ID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(config.thingId)) {
+        showError('⚠️ Le Thing ID ne semble pas avoir le bon format');
         return;
       }
       
@@ -340,28 +374,61 @@
       connect();
     }
     
-    // Obtenir un token d'accès
+    // Réinitialiser la config
+    function resetConfig() {
+      if (confirm('Voulez-vous vraiment réinitialiser la configuration ?')) {
+        localStorage.removeItem('sechoirCloudConfig');
+        location.reload();
+      }
+    }
+    
+    // Obtenir un token d'accès - CORRIGÉ avec encodage URL
     async function getAccessToken() {
       try {
-        updateConnectionStatus('connecting', '🔄 Connexion en cours...');
+        updateConnectionStatus('connecting', '🔄 Authentification en cours...');
         
-        const response = await fetch('https://api2.arduino.cc/iot/v1/clients/token', {
+        const tokenUrl = 'https://api2.arduino.cc/iot/v1/clients/token';
+        
+        // ✅ IMPORTANT: Encoder correctement les paramètres URL
+        const params = new URLSearchParams({
+          'grant_type': 'client_credentials',
+          'client_id': config.clientId,
+          'client_secret': config.clientSecret,
+          'audience': 'https://api2.arduino.cc/iot'
+        });
+        
+        console.log('🔐 Demande de token...');
+        
+        const response = await fetch(tokenUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
-          body: `grant_type=client_credentials&client_id=${config.clientId}&client_secret=${config.clientSecret}&audience=https://api2.arduino.cc/iot`
+          body: params.toString()
         });
         
-        if (!response.ok) throw new Error('Erreur authentification');
+        console.log(`📡 Statut: ${response.status} ${response.statusText}`);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ Erreur:', errorText);
+          throw new Error(`Authentification échouée (${response.status})`);
+        }
         
         const data = await response.json();
         config.accessToken = data.access_token;
         config.tokenExpiry = Date.now() + (data.expires_in * 1000);
         
+        console.log('✅ Token obtenu avec succès');
+        console.log(`⏱️ Expire dans ${data.expires_in} secondes`);
+        
+        // Sauvegarder le token
+        localStorage.setItem('sechoirCloudConfig', JSON.stringify(config));
+        
         return true;
       } catch (error) {
-        showError('Erreur authentification: ' + error.message);
+        console.error('❌ Erreur authentification:', error);
+        showError('❌ Erreur authentification: ' + error.message + '. Vérifiez vos identifiants.');
         updateConnectionStatus('disconnected', '❌ Erreur de connexion');
         return false;
       }
@@ -370,6 +437,7 @@
     // Vérifier et renouveler le token
     async function ensureValidToken() {
       if (Date.now() >= config.tokenExpiry - 60000) {
+        console.log('⚠️ Token expiré, renouvellement...');
         return await getAccessToken();
       }
       return true;
@@ -377,11 +445,25 @@
     
     // Connexion initiale
     async function connect() {
+      console.log('=== CONNEXION À ARDUINO CLOUD ===');
       const success = await getAccessToken();
       if (success) {
         updateConnectionStatus('connected', '✅ Connecté à Arduino Cloud');
         hideError();
-        startUpdates();
+        
+        // Test de récupération des propriétés
+        console.log('🔍 Test de récupération des propriétés...');
+        const props = await getProperties();
+        if (props) {
+          console.log(`✅ ${props.length} propriétés trouvées:`);
+          props.forEach(prop => {
+            console.log(`  - ${prop.name} (ID: ${prop.id})`);
+          });
+          startUpdates();
+        } else {
+          console.error('❌ Impossible de récupérer les propriétés');
+          showError('❌ Impossible de récupérer les propriétés. Vérifiez que l\'ESP32 est connecté et que les variables existent.');
+        }
       }
     }
     
@@ -397,17 +479,25 @@
       if (!await ensureValidToken()) return null;
       
       try {
-        const response = await fetch(`https://api2.arduino.cc/iot/v2/things/${config.thingId}/properties`, {
+        const url = `https://api2.arduino.cc/iot/v2/things/${config.thingId}/properties`;
+        
+        const response = await fetch(url, {
           headers: {
             'Authorization': `Bearer ${config.accessToken}`
           }
         });
         
-        if (!response.ok) throw new Error('Erreur récupération données');
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ Erreur:', errorText);
+          throw new Error(`Erreur ${response.status}`);
+        }
         
-        return await response.json();
+        const data = await response.json();
+        return data;
       } catch (error) {
-        showError('Erreur: ' + error.message);
+        console.error('❌ Erreur getProperties:', error);
+        showError('❌ Erreur: ' + error.message);
         return null;
       }
     }
@@ -417,7 +507,11 @@
       if (!await ensureValidToken()) return false;
       
       try {
-        const response = await fetch(`https://api2.arduino.cc/iot/v2/things/${config.thingId}/properties/${propertyId}/publish`, {
+        const url = `https://api2.arduino.cc/iot/v2/things/${config.thingId}/properties/${propertyId}/publish`;
+        
+        console.log(`📤 Mise à jour de la propriété ${propertyId} = ${value}`);
+        
+        const response = await fetch(url, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${config.accessToken}`,
@@ -426,30 +520,53 @@
           body: JSON.stringify({ value: value })
         });
         
-        return response.ok;
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('❌ Erreur:', errorText);
+          throw new Error(`Erreur ${response.status}`);
+        }
+        
+        console.log('✅ Propriété mise à jour avec succès');
+        return true;
       } catch (error) {
-        showError('Erreur mise à jour: ' + error.message);
+        console.error('❌ Erreur updateProperty:', error);
+        showError('❌ Erreur mise à jour: ' + error.message);
         return false;
       }
     }
     
     // Démarrer le séchage
     async function startDrying() {
+      console.log('=== DÉMARRAGE DU SÉCHAGE ===');
+      
       const properties = await getProperties();
-      if (!properties) return;
+      if (!properties) {
+        showError('❌ Impossible de communiquer avec Arduino Cloud');
+        return;
+      }
       
       const controlProp = properties.find(p => p.name === 'cloudControl');
-      if (controlProp) {
-        const success = await updateProperty(controlProp.id, true);
-        if (success) {
-          alert('✅ Séchage démarré!');
-          updateStatus();
-        }
+      
+      if (!controlProp) {
+        console.error('❌ Propriété cloudControl non trouvée!');
+        console.log('Propriétés disponibles:', properties.map(p => p.name));
+        showError('❌ La propriété "cloudControl" n\'existe pas. Vérifiez la configuration de votre Thing Arduino Cloud.');
+        return;
+      }
+      
+      console.log(`✅ Propriété cloudControl trouvée (ID: ${controlProp.id})`);
+      
+      const success = await updateProperty(controlProp.id, true);
+      if (success) {
+        alert('✅ Séchage démarré!');
+        updateStatus();
       }
     }
     
     // Arrêter le séchage
     async function stopDrying() {
+      console.log('=== ARRÊT DU SÉCHAGE ===');
+      
       const properties = await getProperties();
       if (!properties) return;
       
@@ -468,7 +585,6 @@
       const properties = await getProperties();
       if (!properties) return;
       
-      // Récupérer les valeurs
       const status = properties.find(p => p.name === 'cloudStatus')?.last_value || 'En attente';
       const sensorsData = properties.find(p => p.name === 'cloudSensorsData')?.last_value;
       const historyData = properties.find(p => p.name === 'cloudHistoryData')?.last_value;
@@ -508,7 +624,7 @@
             </div>
           `;
         } catch (e) {
-          console.error('Erreur parsing sensors:', e);
+          console.error('❌ Erreur parsing sensors:', e);
         }
       }
       
@@ -522,7 +638,7 @@
             history.sessions.slice().reverse().forEach(session => {
               const date = new Date(session.ts * 1000).toLocaleString('fr-FR');
               const duration = Math.floor(session.dur / 60) + 'min ' + (session.dur % 60) + 's';
-              const status = session.ok ? '✅ Terminé' : '⚠️ Interrompu';
+              const statusIcon = session.ok ? '✅ Terminé' : '⚠️ Interrompu';
               
               html += `
                 <tr>
@@ -530,7 +646,7 @@
                   <td>${duration}</td>
                   <td>${session.temp.toFixed(1)}°C</td>
                   <td>${session.hum.toFixed(1)}%</td>
-                  <td>${status}</td>
+                  <td>${statusIcon}</td>
                 </tr>
               `;
             });
@@ -540,18 +656,17 @@
             document.getElementById('historyBody').innerHTML = '<tr><td colspan="5" style="text-align: center;">Aucun historique</td></tr>';
           }
         } catch (e) {
-          console.error('Erreur parsing history:', e);
-          document.getElementById('historyBody').innerHTML = '<tr><td colspan="5" style="text-align: center;">Erreur chargement historique</td></tr>';
+          console.error('❌ Erreur parsing history:', e);
         }
       }
       
-      // Activer/désactiver les boutons
       document.getElementById('startBtn').disabled = isRunning;
       document.getElementById('stopBtn').disabled = !isRunning;
     }
     
     // Démarrer les mises à jour automatiques
     function startUpdates() {
+      console.log('🔄 Démarrage des mises à jour automatiques');
       updateStatus();
       updateInterval = setInterval(updateStatus, 3000);
     }
@@ -559,7 +674,7 @@
     // Afficher/masquer les erreurs
     function showError(message) {
       const errorDiv = document.getElementById('errorMessage');
-      errorDiv.textContent = '❌ ' + message;
+      errorDiv.innerHTML = message;
       errorDiv.style.display = 'block';
     }
     
