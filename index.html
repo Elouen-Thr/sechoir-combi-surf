@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Séchoir Combi Surf - Cloud</title>
+  <title>Séchoir Combi Surf</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { 
@@ -73,7 +73,7 @@
     }
     button:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(102, 126, 234, 0.6); }
     button.stop { background: linear-gradient(135deg, #f44336 0%, #e91e63 100%); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     .sensors { 
       display: grid; 
       grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
@@ -85,6 +85,10 @@
       padding: 20px; 
       border-radius: 15px; 
       border-left: 5px solid #667eea; 
+    }
+    .sensor.unavailable {
+      opacity: 0.5;
+      border-left-color: #ccc;
     }
     .sensor strong { display: block; margin-bottom: 10px; color: #667eea; font-size: 1.1em; }
     .sensor .value { font-size: 2.5em; font-weight: bold; color: #333; margin: 5px 0; }
@@ -217,8 +221,8 @@
   <script>
     let firebaseUrl = '';
     let updateInterval;
+    let lastState = '';  // Pour détecter les changements d'état
     
-    // Charger la config
     function loadConfig() {
       const saved = localStorage.getItem('firebaseUrl');
       if (saved) {
@@ -230,7 +234,6 @@
       }
     }
     
-    // Sauvegarder la config
     function saveConfig() {
       firebaseUrl = document.getElementById('firebaseUrl').value.trim();
       
@@ -239,9 +242,7 @@
         return;
       }
       
-      // Retirer le slash final si présent
       firebaseUrl = firebaseUrl.replace(/\/$/, '');
-      
       localStorage.setItem('firebaseUrl', firebaseUrl);
       
       document.getElementById('configPanel').style.display = 'none';
@@ -250,53 +251,57 @@
       connect();
     }
     
-    // Connexion
     function connect() {
       console.log('🔥 Connexion à Firebase:', firebaseUrl);
       updateConnectionStatus('connected', '✅ Connecté à Firebase');
       startUpdates();
     }
     
-    // Mettre à jour le statut de connexion
     function updateConnectionStatus(status, message) {
       const statusDiv = document.getElementById('connectionStatus');
       statusDiv.className = 'connection-status ' + status;
       statusDiv.textContent = message;
     }
     
-    // Démarrer le séchage
     async function startDrying() {
       try {
-        console.log('📤 Envoi commande START');
+        console.log('📤 START');
+        document.getElementById('startBtn').disabled = true;  // Désactiver immédiatement
+        
         await fetch(`${firebaseUrl}/control/command.json`, {
           method: 'PUT',
           body: JSON.stringify("start")
         });
-        alert('✅ Séchage démarré!');
-        updateStatus();
+        
+        // Attendre un peu avant de rafraîchir
+        setTimeout(updateStatus, 500);
       } catch (error) {
         console.error('❌ Erreur:', error);
         alert('❌ Erreur: ' + error.message);
+        document.getElementById('startBtn').disabled = false;
       }
     }
     
-    // Arrêter le séchage
     async function stopDrying() {
       try {
-        console.log('📤 Envoi commande STOP');
+        console.log('📤 STOP');
+        document.getElementById('stopBtn').disabled = true;  // Désactiver immédiatement
+        
         await fetch(`${firebaseUrl}/control/command.json`, {
           method: 'PUT',
           body: JSON.stringify("stop")
         });
-        alert('⏹ Séchage arrêté!');
-        setTimeout(updateStatus, 2000);
+        
+        // Attendre un peu avant de rafraîchir
+        setTimeout(updateStatus, 500);
+        setTimeout(loadHistory, 1000);  // Recharger l'historique
       } catch (error) {
         console.error('❌ Erreur:', error);
         alert('❌ Erreur: ' + error.message);
+        document.getElementById('stopBtn').disabled = false;
       }
     }
     
-    // Mettre à jour l'interface
     async function updateStatus() {
       try {
         // Récupérer le statut
@@ -306,6 +311,12 @@
         // Récupérer les capteurs
         const sensorsResponse = await fetch(`${firebaseUrl}/sensors.json`);
         const sensors = await sensorsResponse.json();
+        
+        // Détecter changement d'état
+        if (status.state !== lastState) {
+          console.log('🔄 Changement état:', lastState, '→', status.state);
+          lastState = status.state;
+        }
         
         // Mettre à jour le statut
         const statusDiv = document.getElementById('status');
@@ -321,37 +332,68 @@
         
         // Mettre à jour les capteurs
         if (sensors) {
-          document.getElementById('sensors').innerHTML = `
+          let sensorsHTML = '';
+          
+          // DHT22 (toujours présent)
+          sensorsHTML += `
             <div class="sensor">
-              <strong>🌡️ Température Sécurité</strong>
-              <div class="value">${sensors.tempSafety.toFixed(1)}</div>
+              <strong>🌡️ Température Sécurité (DHT22)</strong>
+              <div class="value">${sensors.tempSafety ? sensors.tempSafety.toFixed(1) : '--'}</div>
               <div class="unit">°C</div>
             </div>
-            <div class="sensor">
-              <strong>👕 Sortie Manche</strong>
-              <div class="value">${sensors.tempManche.toFixed(1)}°C</div>
-              <div class="unit">${sensors.humManche.toFixed(1)}% humidité</div>
-            </div>
-            <div class="sensor">
-              <strong>👖 Sortie Jambe</strong>
-              <div class="value">${sensors.tempJambe.toFixed(1)}°C</div>
-              <div class="unit">${sensors.humJambe.toFixed(1)}% humidité</div>
-            </div>
           `;
+          
+          // BME280 Manche (peut être absent)
+          if (sensors.tempManche !== null && sensors.tempManche !== undefined) {
+            sensorsHTML += `
+              <div class="sensor">
+                <strong>👕 Sortie Manche (BME280)</strong>
+                <div class="value">${sensors.tempManche.toFixed(1)}°C</div>
+                <div class="unit">${sensors.humManche.toFixed(1)}% humidité</div>
+              </div>
+            `;
+          } else {
+            sensorsHTML += `
+              <div class="sensor unavailable">
+                <strong>👕 Sortie Manche</strong>
+                <div class="value">--</div>
+                <div class="unit">Capteur non connecté</div>
+              </div>
+            `;
+          }
+          
+          // BME280 Jambe (peut être absent)
+          if (sensors.tempJambe !== null && sensors.tempJambe !== undefined) {
+            sensorsHTML += `
+              <div class="sensor">
+                <strong>👖 Sortie Jambe (BME280)</strong>
+                <div class="value">${sensors.tempJambe.toFixed(1)}°C</div>
+                <div class="unit">${sensors.humJambe.toFixed(1)}% humidité</div>
+              </div>
+            `;
+          } else {
+            sensorsHTML += `
+              <div class="sensor unavailable">
+                <strong>👖 Sortie Jambe</strong>
+                <div class="value">--</div>
+                <div class="unit">Capteur non connecté</div>
+              </div>
+            `;
+          }
+          
+          document.getElementById('sensors').innerHTML = sensorsHTML;
         }
         
-        // Activer/désactiver les boutons
-        document.getElementById('startBtn').disabled = (status.state !== 'IDLE');
-        document.getElementById('stopBtn').disabled = (status.state === 'IDLE');
+        // Mettre à jour les boutons en fonction de l'état RÉEL
+        const isRunning = (status.state === 'DRYING' || status.state === 'SAFETY_STOP');
+        document.getElementById('startBtn').disabled = isRunning;
+        document.getElementById('stopBtn').disabled = !isRunning;
         
-        // Charger l'historique
-        loadHistory();
       } catch (error) {
         console.error('❌ Erreur mise à jour:', error);
       }
     }
     
-    // Charger l'historique
     async function loadHistory() {
       try {
         const response = await fetch(`${firebaseUrl}/history.json?orderBy="$key"&limitToLast=20`);
@@ -367,9 +409,10 @@
         
         let html = '';
         sessions.forEach(session => {
+          // Conversion timestamp Unix vers date
           const date = new Date(session.timestamp * 1000).toLocaleString('fr-FR');
           const duration = Math.floor(session.duration / 60) + 'min ' + (session.duration % 60) + 's';
-          const status = session.completed ? '✅ Terminé' : '⚠️ Interrompu';
+          const statusIcon = session.completed ? '✅ Terminé' : '⚠️ Interrompu';
           
           html += `
             <tr>
@@ -377,7 +420,7 @@
               <td>${duration}</td>
               <td>${session.maxTemp.toFixed(1)}°C</td>
               <td>${session.avgHumidity.toFixed(1)}%</td>
-              <td>${status}</td>
+              <td>${statusIcon}</td>
             </tr>
           `;
         });
@@ -388,14 +431,14 @@
       }
     }
     
-    // Démarrer les mises à jour automatiques
     function startUpdates() {
-      console.log('🔄 Démarrage des mises à jour automatiques');
+      console.log('🔄 Démarrage mises à jour (toutes les 2s)');
       updateStatus();
-      updateInterval = setInterval(updateStatus, 3000);
+      loadHistory();
+      updateInterval = setInterval(updateStatus, 2000);  // Réduit à 2s
+      setInterval(loadHistory, 10000);  // Historique toutes les 10s
     }
     
-    // Initialisation
     window.addEventListener('load', loadConfig);
   </script>
 </body>
