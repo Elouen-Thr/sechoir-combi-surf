@@ -27,7 +27,7 @@
       border-bottom: 3px solid #667eea; 
     }
     h1 { color: #667eea; font-size: 2.5em; margin-bottom: 10px; }
-    .subtitle { color: #666; font-size: 1.1em; }
+    .subtitle { color: #666; font-size: 1.1em; margin-bottom: 10px; }
     .badge { 
       display: inline-block; 
       background: #4CAF50; 
@@ -106,12 +106,19 @@
     .sensor .value { font-size: 2.5em; font-weight: bold; color: #333; margin: 5px 0; }
     .sensor .unit { color: #666; font-size: 0.9em; }
     
+    /* Section title avec bouton aligné */
+    .section-header { 
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 30px 0 15px 0; 
+      padding-bottom: 10px; 
+      border-bottom: 2px solid #667eea;
+    }
     .section-title { 
       color: #667eea; 
       font-size: 1.8em; 
-      margin: 30px 0 15px 0; 
-      padding-bottom: 10px; 
-      border-bottom: 2px solid #667eea; 
+      margin: 0;
     }
     
     /* Table responsive */
@@ -174,13 +181,18 @@
     .clear-history {
       background: #dc3545;
       color: white;
-      padding: 8px 20px;
+      padding: 6px 15px;
       border: none;
       border-radius: 5px;
       cursor: pointer;
-      font-weight: bold;
-      font-size: 0.9em;
-      margin-top: 10px;
+      font-weight: 500;
+      font-size: 0.8em;
+      transition: all 0.3s;
+      white-space: nowrap;
+    }
+    .clear-history:hover {
+      background: #c82333;
+      transform: translateY(-1px);
     }
     
     /* Mobile responsive */
@@ -193,10 +205,15 @@
       .sensors { grid-template-columns: 1fr; gap: 15px; }
       .sensor { padding: 15px; }
       .sensor .value { font-size: 2em; }
+      .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+      }
       .section-title { font-size: 1.5em; }
       .status { font-size: 1.1em; padding: 15px; }
       th, td { padding: 10px; font-size: 0.9em; }
-      .clear-history { width: 100%; margin-top: 10px; }
+      .clear-history { width: 100%; }
     }
     
     @media (max-width: 480px) {
@@ -214,7 +231,6 @@
       <h1>🏄 Séchoir Combi Surf</h1>
       <p class="subtitle">Interface Cloud Temps Réel</p>
       <div>
-        <span class="badge">☁️ Firebase</span>
         <span id="esp32Badge" class="badge offline">🔴 ESP32 : Vérification...</span>
       </div>
     </div>
@@ -259,12 +275,10 @@
       </div>
       
       <div class="history">
-        <h2 class="section-title">
-          📈 Historique des séchages
-          <button class="clear-history" onclick="clearHistory()">
-            🗑️ Nettoyer
-          </button>
-        </h2>
+        <div class="section-header">
+          <h2 class="section-title">📈 Historique des séchages</h2>
+          <button class="clear-history" onclick="clearHistory()">🗑️ Nettoyer</button>
+        </div>
         <div class="table-container">
           <table>
             <thead>
@@ -289,7 +303,7 @@
     let firebaseUrl = '';
     let updateInterval;
     let lastState = '';
-    let esp32CheckCount = 0;  // Compteur pour éviter les faux négatifs
+    let esp32CheckCount = 0;
     
     function loadConfig() {
       const saved = localStorage.getItem('firebaseUrl');
@@ -331,7 +345,6 @@
       statusDiv.textContent = message;
     }
     
-    // Vérifier si l'ESP32 est connecté (version plus fiable)
     async function checkESP32Status() {
       try {
         const response = await fetch(`${firebaseUrl}/system/lastUpdate.json`);
@@ -339,7 +352,6 @@
         
         if (!lastUpdate) {
           esp32CheckCount++;
-          // Attendre 3 vérifications négatives avant de déclarer hors ligne
           if (esp32CheckCount >= 3) {
             updateESP32Status(false, 'Hors ligne');
           }
@@ -351,13 +363,11 @@
         
         console.log(`📡 ESP32 heartbeat: ${diff}s ago`);
         
-        // Tolérance de 15 secondes (au lieu de 10)
         if (diff < 15) {
-          esp32CheckCount = 0;  // Réinitialiser le compteur
+          esp32CheckCount = 0;
           updateESP32Status(true, 'En ligne');
         } else {
           esp32CheckCount++;
-          // Attendre 2 vérifications négatives
           if (esp32CheckCount >= 2) {
             updateESP32Status(false, `Hors ligne (${diff}s)`);
           }
@@ -601,7 +611,7 @@
       
       updateInterval = setInterval(updateStatus, 2000);
       setInterval(loadHistory, 10000);
-      setInterval(checkESP32Status, 5000);  // Vérifier ESP32 toutes les 5s
+      setInterval(checkESP32Status, 5000);
     }
     
     window.addEventListener('load', loadConfig);
