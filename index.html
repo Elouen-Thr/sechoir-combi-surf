@@ -36,8 +36,16 @@
       border-radius: 20px; 
       font-size: 0.9em; 
       margin: 5px; 
+      transition: all 0.3s;
     }
-    .badge.offline { background: #f44336; }
+    .badge.offline { 
+      background: #f44336; 
+      animation: pulse-badge 2s infinite;
+    }
+    @keyframes pulse-badge {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
     .connection-status { 
       text-align: center; 
       padding: 12px; 
@@ -47,37 +55,6 @@
     }
     .connection-status.connected { background: #d4edda; color: #155724; }
     .connection-status.disconnected { background: #f8d7da; color: #721c24; }
-    
-    /* Indicateur ESP32 */
-    .esp-status {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 20px;
-      padding: 10px;
-      border-radius: 10px;
-      background: #f8f9fa;
-    }
-    .esp-indicator {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: #4CAF50;
-      animation: pulse-online 2s infinite;
-    }
-    .esp-indicator.offline {
-      background: #f44336;
-      animation: none;
-    }
-    @keyframes pulse-online {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    .esp-status-text {
-      font-weight: bold;
-      color: #333;
-    }
     
     .status { 
       padding: 20px; 
@@ -149,13 +126,13 @@
       width: 100%; 
       border-collapse: collapse; 
       background: white; 
-      min-width: 600px; /* Force une largeur minimale */
+      min-width: 600px;
     }
     th, td { 
       padding: 15px; 
       text-align: left; 
       border-bottom: 1px solid #e0e0e0; 
-      white-space: nowrap; /* Empêche le retour à la ligne */
+      white-space: nowrap;
     }
     th { 
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
@@ -238,7 +215,7 @@
       <p class="subtitle">Interface Cloud Temps Réel</p>
       <div>
         <span class="badge">☁️ Firebase</span>
-        <span id="esp32Badge" class="badge offline">🔴 ESP32 Hors ligne</span>
+        <span id="esp32Badge" class="badge offline">🔴 ESP32 : Vérification...</span>
       </div>
     </div>
     
@@ -255,12 +232,6 @@
     </div>
     
     <div id="mainContent" style="display: none;">
-      <!-- Indicateur ESP32 -->
-      <div class="esp-status">
-        <div id="espIndicator" class="esp-indicator offline"></div>
-        <span id="espStatusText" class="esp-status-text">ESP32 : Vérification...</span>
-      </div>
-      
       <div id="status" class="status idle">Chargement...</div>
       
       <div class="controls">
@@ -318,6 +289,7 @@
     let firebaseUrl = '';
     let updateInterval;
     let lastState = '';
+    let esp32CheckCount = 0;  // Compteur pour éviter les faux négatifs
     
     function loadConfig() {
       const saved = localStorage.getItem('firebaseUrl');
@@ -359,47 +331,55 @@
       statusDiv.textContent = message;
     }
     
-    // Vérifier si l'ESP32 est connecté
+    // Vérifier si l'ESP32 est connecté (version plus fiable)
     async function checkESP32Status() {
       try {
         const response = await fetch(`${firebaseUrl}/system/lastUpdate.json`);
         const lastUpdate = await response.json();
         
         if (!lastUpdate) {
-          updateESP32Status(false, 'Jamais connecté');
+          esp32CheckCount++;
+          // Attendre 3 vérifications négatives avant de déclarer hors ligne
+          if (esp32CheckCount >= 3) {
+            updateESP32Status(false, 'Hors ligne');
+          }
           return;
         }
         
         const now = Math.floor(Date.now() / 1000);
         const diff = now - lastUpdate;
         
-        // Si la dernière mise à jour date de moins de 10 secondes, ESP32 est en ligne
-        if (diff < 10) {
-          updateESP32Status(true, `En ligne (mis à jour il y a ${diff}s)`);
+        console.log(`📡 ESP32 heartbeat: ${diff}s ago`);
+        
+        // Tolérance de 15 secondes (au lieu de 10)
+        if (diff < 15) {
+          esp32CheckCount = 0;  // Réinitialiser le compteur
+          updateESP32Status(true, 'En ligne');
         } else {
-          updateESP32Status(false, `Hors ligne depuis ${diff}s`);
+          esp32CheckCount++;
+          // Attendre 2 vérifications négatives
+          if (esp32CheckCount >= 2) {
+            updateESP32Status(false, `Hors ligne (${diff}s)`);
+          }
         }
       } catch (error) {
         console.error('❌ Erreur vérification ESP32:', error);
-        updateESP32Status(false, 'Erreur de connexion');
+        esp32CheckCount++;
+        if (esp32CheckCount >= 3) {
+          updateESP32Status(false, 'Erreur');
+        }
       }
     }
     
     function updateESP32Status(online, message) {
-      const indicator = document.getElementById('espIndicator');
-      const statusText = document.getElementById('espStatusText');
       const badge = document.getElementById('esp32Badge');
       
       if (online) {
-        indicator.className = 'esp-indicator';
-        statusText.textContent = 'ESP32 : ' + message;
         badge.className = 'badge';
-        badge.textContent = '🟢 ESP32 En ligne';
+        badge.textContent = '🟢 ESP32 : ' + message;
       } else {
-        indicator.className = 'esp-indicator offline';
-        statusText.textContent = 'ESP32 : ' + message;
         badge.className = 'badge offline';
-        badge.textContent = '🔴 ESP32 Hors ligne';
+        badge.textContent = '🔴 ESP32 : ' + message;
       }
     }
     
@@ -618,9 +598,10 @@
       updateStatus();
       loadHistory();
       checkESP32Status();
+      
       updateInterval = setInterval(updateStatus, 2000);
       setInterval(loadHistory, 10000);
-      setInterval(checkESP32Status, 3000);  // Vérifier ESP32 toutes les 3s
+      setInterval(checkESP32Status, 5000);  // Vérifier ESP32 toutes les 5s
     }
     
     window.addEventListener('load', loadConfig);
