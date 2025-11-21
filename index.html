@@ -35,8 +35,9 @@
       padding: 5px 15px; 
       border-radius: 20px; 
       font-size: 0.9em; 
-      margin-top: 10px; 
+      margin: 5px; 
     }
+    .badge.offline { background: #f44336; }
     .connection-status { 
       text-align: center; 
       padding: 12px; 
@@ -46,6 +47,38 @@
     }
     .connection-status.connected { background: #d4edda; color: #155724; }
     .connection-status.disconnected { background: #f8d7da; color: #721c24; }
+    
+    /* Indicateur ESP32 */
+    .esp-status {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding: 10px;
+      border-radius: 10px;
+      background: #f8f9fa;
+    }
+    .esp-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #4CAF50;
+      animation: pulse-online 2s infinite;
+    }
+    .esp-indicator.offline {
+      background: #f44336;
+      animation: none;
+    }
+    @keyframes pulse-online {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .esp-status-text {
+      font-weight: bold;
+      color: #333;
+    }
+    
     .status { 
       padding: 20px; 
       border-radius: 10px; 
@@ -58,7 +91,8 @@
     .status.drying { background: #4CAF50; color: white; box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4); }
     .status.safety { background: #f44336; color: white; animation: pulse 1s infinite; }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
-    .controls { display: flex; gap: 15px; justify-content: center; margin: 25px 0; }
+    
+    .controls { display: flex; gap: 15px; justify-content: center; margin: 25px 0; flex-wrap: wrap; }
     button { 
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
       color: white; 
@@ -74,6 +108,7 @@
     button:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(102, 126, 234, 0.6); }
     button.stop { background: linear-gradient(135deg, #f44336 0%, #e91e63 100%); }
     button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    
     .sensors { 
       display: grid; 
       grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); 
@@ -93,6 +128,7 @@
     .sensor strong { display: block; margin-bottom: 10px; color: #667eea; font-size: 1.1em; }
     .sensor .value { font-size: 2.5em; font-weight: bold; color: #333; margin: 5px 0; }
     .sensor .unit { color: #666; font-size: 0.9em; }
+    
     .section-title { 
       color: #667eea; 
       font-size: 1.8em; 
@@ -100,24 +136,39 @@
       padding-bottom: 10px; 
       border-bottom: 2px solid #667eea; 
     }
+    
+    /* Table responsive */
+    .table-container {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      margin-top: 15px;
+      border-radius: 10px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
     table { 
       width: 100%; 
       border-collapse: collapse; 
-      margin-top: 15px; 
       background: white; 
-      border-radius: 10px; 
-      overflow: hidden; 
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1); 
+      min-width: 600px; /* Force une largeur minimale */
     }
-    th, td { padding: 15px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+    th, td { 
+      padding: 15px; 
+      text-align: left; 
+      border-bottom: 1px solid #e0e0e0; 
+      white-space: nowrap; /* Empêche le retour à la ligne */
+    }
     th { 
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
       color: white; 
       font-weight: bold; 
       text-transform: uppercase; 
       font-size: 0.9em; 
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
     tr:hover { background: #f5f7fa; }
+    
     .config-panel { 
       background: #fff3cd; 
       border: 2px solid #ffc107; 
@@ -143,11 +194,40 @@
       font-weight: bold; 
       margin-top: 10px; 
     }
+    .clear-history {
+      background: #dc3545;
+      color: white;
+      padding: 8px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 0.9em;
+      margin-top: 10px;
+    }
+    
+    /* Mobile responsive */
     @media (max-width: 768px) {
+      .container { padding: 20px; }
       h1 { font-size: 1.8em; }
+      .subtitle { font-size: 1em; }
       .controls { flex-direction: column; }
-      button { width: 100%; }
-      .sensors { grid-template-columns: 1fr; }
+      button { width: 100%; padding: 12px 30px; font-size: 1em; }
+      .sensors { grid-template-columns: 1fr; gap: 15px; }
+      .sensor { padding: 15px; }
+      .sensor .value { font-size: 2em; }
+      .section-title { font-size: 1.5em; }
+      .status { font-size: 1.1em; padding: 15px; }
+      th, td { padding: 10px; font-size: 0.9em; }
+      .clear-history { width: 100%; margin-top: 10px; }
+    }
+    
+    @media (max-width: 480px) {
+      .container { padding: 15px; border-radius: 15px; }
+      h1 { font-size: 1.5em; }
+      .badge { font-size: 0.8em; padding: 4px 10px; }
+      .sensor .value { font-size: 1.8em; }
+      th, td { padding: 8px; font-size: 0.85em; }
     }
   </style>
 </head>
@@ -155,8 +235,11 @@
   <div class="container">
     <div class="header">
       <h1>🏄 Séchoir Combi Surf</h1>
-      <p class="subtitle">Interface GitHub + Firebase Cloud</p>
-      <span class="badge">☁️ 100% Cloud</span>
+      <p class="subtitle">Interface Cloud Temps Réel</p>
+      <div>
+        <span class="badge">☁️ Firebase</span>
+        <span id="esp32Badge" class="badge offline">🔴 ESP32 Hors ligne</span>
+      </div>
     </div>
     
     <div id="configPanel" class="config-panel">
@@ -172,6 +255,12 @@
     </div>
     
     <div id="mainContent" style="display: none;">
+      <!-- Indicateur ESP32 -->
+      <div class="esp-status">
+        <div id="espIndicator" class="esp-indicator offline"></div>
+        <span id="espStatusText" class="esp-status-text">ESP32 : Vérification...</span>
+      </div>
+      
       <div id="status" class="status idle">Chargement...</div>
       
       <div class="controls">
@@ -199,21 +288,28 @@
       </div>
       
       <div class="history">
-        <h2 class="section-title">📈 Historique des séchages</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Durée</th>
-              <th>Temp max</th>
-              <th>Humidité moy</th>
-              <th>Statut</th>
-            </tr>
-          </thead>
-          <tbody id="historyBody">
-            <tr><td colspan="5" style="text-align: center;">Chargement...</td></tr>
-          </tbody>
-        </table>
+        <h2 class="section-title">
+          📈 Historique des séchages
+          <button class="clear-history" onclick="clearHistory()">
+            🗑️ Nettoyer
+          </button>
+        </h2>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Durée</th>
+                <th>Temp max</th>
+                <th>Humidité</th>
+                <th>Statut</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody">
+              <tr><td colspan="5" style="text-align: center;">Chargement...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -221,7 +317,7 @@
   <script>
     let firebaseUrl = '';
     let updateInterval;
-    let lastState = '';  // Pour détecter les changements d'état
+    let lastState = '';
     
     function loadConfig() {
       const saved = localStorage.getItem('firebaseUrl');
@@ -263,17 +359,60 @@
       statusDiv.textContent = message;
     }
     
+    // Vérifier si l'ESP32 est connecté
+    async function checkESP32Status() {
+      try {
+        const response = await fetch(`${firebaseUrl}/system/lastUpdate.json`);
+        const lastUpdate = await response.json();
+        
+        if (!lastUpdate) {
+          updateESP32Status(false, 'Jamais connecté');
+          return;
+        }
+        
+        const now = Math.floor(Date.now() / 1000);
+        const diff = now - lastUpdate;
+        
+        // Si la dernière mise à jour date de moins de 10 secondes, ESP32 est en ligne
+        if (diff < 10) {
+          updateESP32Status(true, `En ligne (mis à jour il y a ${diff}s)`);
+        } else {
+          updateESP32Status(false, `Hors ligne depuis ${diff}s`);
+        }
+      } catch (error) {
+        console.error('❌ Erreur vérification ESP32:', error);
+        updateESP32Status(false, 'Erreur de connexion');
+      }
+    }
+    
+    function updateESP32Status(online, message) {
+      const indicator = document.getElementById('espIndicator');
+      const statusText = document.getElementById('espStatusText');
+      const badge = document.getElementById('esp32Badge');
+      
+      if (online) {
+        indicator.className = 'esp-indicator';
+        statusText.textContent = 'ESP32 : ' + message;
+        badge.className = 'badge';
+        badge.textContent = '🟢 ESP32 En ligne';
+      } else {
+        indicator.className = 'esp-indicator offline';
+        statusText.textContent = 'ESP32 : ' + message;
+        badge.className = 'badge offline';
+        badge.textContent = '🔴 ESP32 Hors ligne';
+      }
+    }
+    
     async function startDrying() {
       try {
         console.log('📤 START');
-        document.getElementById('startBtn').disabled = true;  // Désactiver immédiatement
+        document.getElementById('startBtn').disabled = true;
         
         await fetch(`${firebaseUrl}/control/command.json`, {
           method: 'PUT',
           body: JSON.stringify("start")
         });
         
-        // Attendre un peu avant de rafraîchir
         setTimeout(updateStatus, 500);
       } catch (error) {
         console.error('❌ Erreur:', error);
@@ -285,16 +424,15 @@
     async function stopDrying() {
       try {
         console.log('📤 STOP');
-        document.getElementById('stopBtn').disabled = true;  // Désactiver immédiatement
+        document.getElementById('stopBtn').disabled = true;
         
         await fetch(`${firebaseUrl}/control/command.json`, {
           method: 'PUT',
           body: JSON.stringify("stop")
         });
         
-        // Attendre un peu avant de rafraîchir
         setTimeout(updateStatus, 500);
-        setTimeout(loadHistory, 1000);  // Recharger l'historique
+        setTimeout(loadHistory, 2000);
       } catch (error) {
         console.error('❌ Erreur:', error);
         alert('❌ Erreur: ' + error.message);
@@ -302,23 +440,36 @@
       }
     }
     
+    async function clearHistory() {
+      if (!confirm('⚠️ Voulez-vous vraiment supprimer tout l\'historique ?')) {
+        return;
+      }
+      
+      try {
+        await fetch(`${firebaseUrl}/history.json`, {
+          method: 'DELETE'
+        });
+        alert('✅ Historique nettoyé !');
+        loadHistory();
+      } catch (error) {
+        console.error('❌ Erreur:', error);
+        alert('❌ Erreur: ' + error.message);
+      }
+    }
+    
     async function updateStatus() {
       try {
-        // Récupérer le statut
         const statusResponse = await fetch(`${firebaseUrl}/status.json`);
         const status = await statusResponse.json();
         
-        // Récupérer les capteurs
         const sensorsResponse = await fetch(`${firebaseUrl}/sensors.json`);
         const sensors = await sensorsResponse.json();
         
-        // Détecter changement d'état
         if (status.state !== lastState) {
           console.log('🔄 Changement état:', lastState, '→', status.state);
           lastState = status.state;
         }
         
-        // Mettre à jour le statut
         const statusDiv = document.getElementById('status');
         statusDiv.textContent = status.message || 'En attente';
         
@@ -330,53 +481,49 @@
           statusDiv.className = 'status safety';
         }
         
-        // Mettre à jour les capteurs
         if (sensors) {
           let sensorsHTML = '';
           
-          // DHT22 (toujours présent)
           sensorsHTML += `
             <div class="sensor">
-              <strong>🌡️ Température Sécurité (DHT22)</strong>
+              <strong>🌡️ Sécurité</strong>
               <div class="value">${sensors.tempSafety ? sensors.tempSafety.toFixed(1) : '--'}</div>
-              <div class="unit">°C</div>
+              <div class="unit">°C (DHT22)</div>
             </div>
           `;
           
-          // BME280 Manche (peut être absent)
           if (sensors.tempManche !== null && sensors.tempManche !== undefined) {
             sensorsHTML += `
               <div class="sensor">
-                <strong>👕 Sortie Manche (BME280)</strong>
+                <strong>👕 Manche</strong>
                 <div class="value">${sensors.tempManche.toFixed(1)}°C</div>
-                <div class="unit">${sensors.humManche.toFixed(1)}% humidité</div>
+                <div class="unit">${sensors.humManche.toFixed(0)}% (BME280)</div>
               </div>
             `;
           } else {
             sensorsHTML += `
               <div class="sensor unavailable">
-                <strong>👕 Sortie Manche</strong>
+                <strong>👕 Manche</strong>
                 <div class="value">--</div>
-                <div class="unit">Capteur non connecté</div>
+                <div class="unit">Non connecté</div>
               </div>
             `;
           }
           
-          // BME280 Jambe (peut être absent)
           if (sensors.tempJambe !== null && sensors.tempJambe !== undefined) {
             sensorsHTML += `
               <div class="sensor">
-                <strong>👖 Sortie Jambe (BME280)</strong>
+                <strong>👖 Jambe</strong>
                 <div class="value">${sensors.tempJambe.toFixed(1)}°C</div>
-                <div class="unit">${sensors.humJambe.toFixed(1)}% humidité</div>
+                <div class="unit">${sensors.humJambe.toFixed(0)}% (BME280)</div>
               </div>
             `;
           } else {
             sensorsHTML += `
               <div class="sensor unavailable">
-                <strong>👖 Sortie Jambe</strong>
+                <strong>👖 Jambe</strong>
                 <div class="value">--</div>
-                <div class="unit">Capteur non connecté</div>
+                <div class="unit">Non connecté</div>
               </div>
             `;
           }
@@ -384,7 +531,6 @@
           document.getElementById('sensors').innerHTML = sensorsHTML;
         }
         
-        // Mettre à jour les boutons en fonction de l'état RÉEL
         const isRunning = (status.state === 'DRYING' || status.state === 'SAFETY_STOP');
         document.getElementById('startBtn').disabled = isRunning;
         document.getElementById('stopBtn').disabled = !isRunning;
@@ -396,47 +542,85 @@
     
     async function loadHistory() {
       try {
-        const response = await fetch(`${firebaseUrl}/history.json?orderBy="$key"&limitToLast=20`);
+        const response = await fetch(`${firebaseUrl}/history.json`);
         const data = await response.json();
         
-        if (!data) {
+        if (!data || Object.keys(data).length === 0) {
           document.getElementById('historyBody').innerHTML = 
             '<tr><td colspan="5" style="text-align: center;">Aucun historique</td></tr>';
           return;
         }
         
-        const sessions = Object.values(data).sort((a, b) => b.timestamp - a.timestamp);
+        const sessions = Object.entries(data).map(([key, value]) => {
+          let timestamp = value.timestamp || value.startTime || parseInt(key);
+          
+          if (timestamp < 1000000000) {
+            return null;
+          }
+          
+          return {
+            key: key,
+            timestamp: timestamp,
+            duration: value.duration || 0,
+            maxTemp: value.maxTemp || 0,
+            avgHumidity: value.avgHumidity || 0,
+            completed: value.completed !== false
+          };
+        }).filter(s => s !== null);
+        
+        sessions.sort((a, b) => b.timestamp - a.timestamp);
+        
+        if (sessions.length === 0) {
+          document.getElementById('historyBody').innerHTML = 
+            '<tr><td colspan="5" style="text-align: center;">Aucune session valide</td></tr>';
+          return;
+        }
         
         let html = '';
         sessions.forEach(session => {
-          // Conversion timestamp Unix vers date
-          const date = new Date(session.timestamp * 1000).toLocaleString('fr-FR');
+          const date = new Date(session.timestamp * 1000);
+          
+          if (isNaN(date.getTime())) {
+            return;
+          }
+          
+          const dateStr = date.toLocaleString('fr-FR', { 
+            day: '2-digit', 
+            month: '2-digit', 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
           const duration = Math.floor(session.duration / 60) + 'min ' + (session.duration % 60) + 's';
-          const statusIcon = session.completed ? '✅ Terminé' : '⚠️ Interrompu';
+          const statusIcon = session.completed ? '✅' : '⚠️';
           
           html += `
             <tr>
-              <td>${date}</td>
+              <td>${dateStr}</td>
               <td>${duration}</td>
               <td>${session.maxTemp.toFixed(1)}°C</td>
-              <td>${session.avgHumidity.toFixed(1)}%</td>
+              <td>${session.avgHumidity.toFixed(0)}%</td>
               <td>${statusIcon}</td>
             </tr>
           `;
         });
         
         document.getElementById('historyBody').innerHTML = html;
+        
       } catch (error) {
         console.error('❌ Erreur historique:', error);
+        document.getElementById('historyBody').innerHTML = 
+          '<tr><td colspan="5" style="text-align: center; color: red;">Erreur</td></tr>';
       }
     }
     
     function startUpdates() {
-      console.log('🔄 Démarrage mises à jour (toutes les 2s)');
+      console.log('🔄 Démarrage mises à jour');
       updateStatus();
       loadHistory();
-      updateInterval = setInterval(updateStatus, 2000);  // Réduit à 2s
-      setInterval(loadHistory, 10000);  // Historique toutes les 10s
+      checkESP32Status();
+      updateInterval = setInterval(updateStatus, 2000);
+      setInterval(loadHistory, 10000);
+      setInterval(checkESP32Status, 3000);  // Vérifier ESP32 toutes les 3s
     }
     
     window.addEventListener('load', loadConfig);
