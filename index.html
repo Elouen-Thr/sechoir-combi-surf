@@ -97,6 +97,7 @@
       padding: 20px; 
       border-radius: 15px; 
       border-left: 5px solid #667eea; 
+      transition: all 0.3s;
     }
     .sensor.unavailable {
       opacity: 0.5;
@@ -304,6 +305,7 @@
     let updateInterval;
     let lastState = '';
     let esp32CheckCount = 0;
+    let esp32Online = false;  // ← NOUVEAU : état de l'ESP32
     
     function loadConfig() {
       const saved = localStorage.getItem('firebaseUrl');
@@ -345,6 +347,7 @@
       statusDiv.textContent = message;
     }
     
+    // Vérifier si l'ESP32 est connecté
     async function checkESP32Status() {
       try {
         const response = await fetch(`${firebaseUrl}/system/lastUpdate.json`);
@@ -353,7 +356,7 @@
         if (!lastUpdate) {
           esp32CheckCount++;
           if (esp32CheckCount >= 3) {
-            updateESP32Status(false, 'Hors ligne');
+            updateESP32Status(false);
           }
           return;
         }
@@ -365,32 +368,37 @@
         
         if (diff < 15) {
           esp32CheckCount = 0;
-          updateESP32Status(true, 'En ligne');
+          updateESP32Status(true);
         } else {
           esp32CheckCount++;
           if (esp32CheckCount >= 2) {
-            updateESP32Status(false, `Hors ligne (${diff}s)`);
+            updateESP32Status(false);
           }
         }
       } catch (error) {
         console.error('❌ Erreur vérification ESP32:', error);
         esp32CheckCount++;
         if (esp32CheckCount >= 3) {
-          updateESP32Status(false, 'Erreur');
+          updateESP32Status(false);
         }
       }
     }
     
-    function updateESP32Status(online, message) {
+    // ← MODIFIÉ : Plus de compteur dans le message
+    function updateESP32Status(online) {
+      esp32Online = online;  // Stocker l'état
       const badge = document.getElementById('esp32Badge');
       
       if (online) {
         badge.className = 'badge';
-        badge.textContent = '🟢 ESP32 : ' + message;
+        badge.textContent = '🟢 ESP32 : En ligne';
       } else {
         badge.className = 'badge offline';
-        badge.textContent = '🔴 ESP32 : ' + message;
+        badge.textContent = '🔴 ESP32 : Hors ligne';  // ← Sans compteur
       }
+      
+      // ← NOUVEAU : Rafraîchir l'affichage des capteurs
+      updateStatus();
     }
     
     async function startDrying() {
@@ -471,18 +479,24 @@
           statusDiv.className = 'status safety';
         }
         
+        // ← MODIFIÉ : Affichage des capteurs avec gestion ESP32 offline
         if (sensors) {
           let sensorsHTML = '';
           
+          // Capteur de sécurité (DHT22)
+          const unavailableClass = esp32Online ? '' : 'unavailable';
+          const tempSafety = esp32Online && sensors.tempSafety ? sensors.tempSafety.toFixed(1) : '--';
+          
           sensorsHTML += `
-            <div class="sensor">
+            <div class="sensor ${unavailableClass}">
               <strong>🌡️ Sécurité</strong>
-              <div class="value">${sensors.tempSafety ? sensors.tempSafety.toFixed(1) : '--'}</div>
+              <div class="value">${tempSafety}</div>
               <div class="unit">°C (DHT22)</div>
             </div>
           `;
           
-          if (sensors.tempManche !== null && sensors.tempManche !== undefined) {
+          // BME280 Manche
+          if (esp32Online && sensors.tempManche !== null && sensors.tempManche !== undefined) {
             sensorsHTML += `
               <div class="sensor">
                 <strong>👕 Manche</strong>
@@ -491,16 +505,18 @@
               </div>
             `;
           } else {
+            const reason = !esp32Online ? 'ESP32 déconnecté' : 'Non connecté';
             sensorsHTML += `
               <div class="sensor unavailable">
                 <strong>👕 Manche</strong>
                 <div class="value">--</div>
-                <div class="unit">Non connecté</div>
+                <div class="unit">${reason}</div>
               </div>
             `;
           }
           
-          if (sensors.tempJambe !== null && sensors.tempJambe !== undefined) {
+          // BME280 Jambe
+          if (esp32Online && sensors.tempJambe !== null && sensors.tempJambe !== undefined) {
             sensorsHTML += `
               <div class="sensor">
                 <strong>👖 Jambe</strong>
@@ -509,11 +525,12 @@
               </div>
             `;
           } else {
+            const reason = !esp32Online ? 'ESP32 déconnecté' : 'Non connecté';
             sensorsHTML += `
               <div class="sensor unavailable">
                 <strong>👖 Jambe</strong>
                 <div class="value">--</div>
-                <div class="unit">Non connecté</div>
+                <div class="unit">${reason}</div>
               </div>
             `;
           }
