@@ -424,19 +424,27 @@
           if (sensors) {
             let sensorsHTML = '';
             
-            const unavailableClass = esp32Online ? '' : 'unavailable';
-            const tempSafety = esp32Online && sensors.tempSafety ? sensors.tempSafety.toFixed(1) : '--';
+            // CAPTEUR SÉCURITÉ - MODIFIÉ POUR HOMOGÉNÉITÉ
+            if (esp32Online && sensors.tempSafety !== null && sensors.tempSafety !== undefined) {
+              sensorsHTML += `
+                <div class="sensor">
+                  <strong>🌡️ Sécurité</strong>
+                  <div class="value">${sensors.tempSafety.toFixed(1)}°C</div>
+                  <div class="unit">Capteur DHT22</div>
+                </div>
+              `;
+            } else {
+              const reason = !esp32Online ? 'ESP32 déconnecté' : 'Non connecté';
+              sensorsHTML += `
+                <div class="sensor unavailable">
+                  <strong>🌡️ Sécurité</strong>
+                  <div class="value">--</div>
+                  <div class="unit">${reason}</div>
+                </div>
+              `;
+            }
             
-            // CAPTEUR SÉCURITÉ
-            sensorsHTML += `
-              <div class="sensor ${unavailableClass}">
-                <strong>🌡️ Sécurité</strong>
-                <div class="value">${tempSafety}</div>
-                <div class="unit">°C (DHT22)</div>
-              </div>
-            `;
-            
-            // CAPTEUR MANCHE - MODIFIÉ POUR AFFICHER HUMIDITÉ SOBREMENT
+            // CAPTEUR MANCHE
             if (esp32Online && sensors.tempManche !== null && sensors.tempManche !== undefined) {
               const humManche = sensors.humManche !== undefined ? sensors.humManche.toFixed(0) : '--';
               sensorsHTML += `
@@ -460,7 +468,7 @@
               `;
             }
             
-            // CAPTEUR JAMBE - MODIFIÉ POUR AFFICHER HUMIDITÉ SOBREMENT
+            // CAPTEUR JAMBE
             if (esp32Online && sensors.tempJambe !== null && sensors.tempJambe !== undefined) {
               const humJambe = sensors.humJambe !== undefined ? sensors.humJambe.toFixed(0) : '--';
               sensorsHTML += `
