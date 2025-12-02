@@ -436,7 +436,7 @@
               </div>
             `;
             
-            // CAPTEUR MANCHE - MODIFIÉ POUR AFFICHER HUMIDITÉ DANS LA CASE
+            // CAPTEUR MANCHE - MODIFIÉ POUR AFFICHER HUMIDITÉ SOBREMENT
             if (esp32Online && sensors.tempManche !== null && sensors.tempManche !== undefined) {
               const humManche = sensors.humManche !== undefined ? sensors.humManche.toFixed(0) : '--';
               sensorsHTML += `
@@ -444,9 +444,9 @@
                   <strong>👕 Manche</strong>
                   <div class="value">
                     ${sensors.tempManche.toFixed(1)}°C 
-                    <span class="hum">💧${humManche}%</span>
+                    <span class="hum">/ ${humManche}%</span>
                   </div>
-                  <div class="unit">Température & Humidité</div>
+                  <div class="unit">Température / Humidité</div>
                 </div>
               `;
             } else {
@@ -460,7 +460,7 @@
               `;
             }
             
-            // CAPTEUR JAMBE - MODIFIÉ POUR AFFICHER HUMIDITÉ DANS LA CASE
+            // CAPTEUR JAMBE - MODIFIÉ POUR AFFICHER HUMIDITÉ SOBREMENT
             if (esp32Online && sensors.tempJambe !== null && sensors.tempJambe !== undefined) {
               const humJambe = sensors.humJambe !== undefined ? sensors.humJambe.toFixed(0) : '--';
               sensorsHTML += `
@@ -468,9 +468,9 @@
                   <strong>👖 Jambe</strong>
                   <div class="value">
                     ${sensors.tempJambe.toFixed(1)}°C
-                    <span class="hum">💧${humJambe}%</span>
+                    <span class="hum">/ ${humJambe}%</span>
                   </div>
-                  <div class="unit">Température & Humidité</div>
+                  <div class="unit">Température / Humidité</div>
                 </div>
               `;
             } else {
