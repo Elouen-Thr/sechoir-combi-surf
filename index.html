@@ -309,7 +309,7 @@
         
         console.log(`📡 ESP32 heartbeat: ${diff}s ago`);
         
-        if (diff < 25) {
+        if (diff < 8) {
           esp32CheckCount = 0;
           updateESP32Status(true);
         } else {
